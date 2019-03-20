@@ -27,7 +27,7 @@ for i in range(5,sheetMaxRows-3,1):
 		
 
 
-#Psuedocode:
+#Pseudocode:
 #Run a for-loop to search through column B to identify "Grand Total for"
 #For each "Grand Total for" found:
 #	Set variable Fund to the value found in that row and in column G.
