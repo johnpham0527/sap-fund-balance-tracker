@@ -1,61 +1,96 @@
-#Before running this script, ensure that openpyxl is installed. 
-#Before running this script, always back up the current tracker Excel file, "Grant Expenditure Tracking, FY2019.xlsx"
-#Before running this script, export the data from SAP into an Excel file called "AllFunds.xlsx"
+### Helper Functions
+def getFundValue(cell, row):
+	return cell(row=row, column=7).value
 
+def getReleasedBudgetValue(cell, row):
+	return cell(row=row, column=26).value
+
+def getYTDActualValue(cell, row):
+	return cell(row=row, column=29).value
+
+def getOpenPOsValue(cell, row):
+	return cell(row=row, column=34).value
+
+def getOpenReqsValue(cell, row):
+	return cell(row=row, column=37).value
+
+def getBalanceValue(cell, row):
+	return cell(row=row, column=42).value
+
+def getFundNameRow(cell, row):
+	currentRow = row
+	currentFundCell = inputSheet.cell(row=currentRow, column=2) 
+	while currentFundCell.value != "Fund Name:": #search for the row which contains "Fund Name:"
+		#move to the previous row until "Fund Name:" is found
+		currentRow -= 1 
+		currentFundCell = inputSheet.cell(row=currentRow, column=2)
+	return currentRow
+
+def getEndDate(cell, row):
+	return cell(row=row, column=39).value
+
+def getFundName(cell, row):
+	return cell(row=row, column=4).value
+
+
+### Import
 import openpyxl
 import datetime
+from openpyxl import Workbook
 
-wb = openpyxl.load_workbook('AllFunds.xlsx') #this file was exported from SAP
-trackingWorkbook = openpyxl.load_workbook('Grant Expenditure Tracking, FY2019.xlsx') #I have been using this Excel file to monitor certain SAP funds over time. Prior to Python, I had been updating this workbook manually.
+### Initiate input variables
+inputWorkbook = openpyxl.load_workbook('AllFunds.xlsx')
+inputSheet = inputWorkbook['AllFunds']
+inputSheetMaxRows = inputSheet.max_row
 
-trackingWorkbookSheetList = trackingWorkbook.sheetnames
-numberWorksheets = len(trackingWorkbookSheetList)
-mostRecentTrackingWorksheetName = trackingWorkbookSheetList[numberWorksheets-1] #the most recent worksheet is the last one
-trackingSheet = trackingWorkbook[mostRecentTrackingWorksheetName]
+### Initiate output variables
+outputWorkbook = Workbook()
+outputArray = []
 
-sheetMaxRows = trackingSheet.max_row
-sheetMaxColumns = trackingSheet.max_column
-trackingListCount = 0
-trackingList = []
+### Iterate through the input spreadsheet
+print("Reading through the AllFunds.xlsx spreadsheet...")
+for i in range(1,inputSheetMaxRows-2,1):
+	currentFundCell = inputSheet.cell(row=i, column=7)
+	if currentFundCell.value is not None: #if Column 7 is not empty, then we have found a fund
+		#retrieve values for the fund
+		currentRow = i #the fund value, released budget, YTD actual, open POs, open Reqs, and balance are all found in the current row
+		fund = getFundValue(inputSheet.cell, currentRow)
+		releasedBudget = getReleasedBudgetValue(inputSheet.cell, currentRow)
+		ytdActual = getYTDActualValue(inputSheet.cell, currentRow)
+		openPOs = getOpenPOsValue(inputSheet.cell, currentRow)
+		openReqs = getOpenReqsValue(inputSheet.cell, currentRow)
+		balance = getBalanceValue(inputSheet.cell, currentRow)
+		currentRow = getFundNameRow(inputSheet.cell, currentRow) #the fund name and end date are found in a different row that contains "Fund Name:"
+		endDate = getEndDate(inputSheet.cell, currentRow)
+		fundName = getFundName(inputSheet.cell, currentRow)
+		rowArray = [fund, releasedBudget, ytdActual, openPOs, openReqs, balance, endDate, fundName]
+		outputArray.append(rowArray)
 
-#create and populate a list of the funds that I am tracking
-for i in range(5,sheetMaxRows-3,1):
-	if trackingSheet.cell(row=i, column=1).value != "Total":
-		fund = trackingSheet.cell(row=i, column=1).value
-		trackingList.append(fund)
-		trackingListCount += 1
-		
+### Populate header row of output worksheet
+outputSheet = outputWorkbook.active
+outputSheet['A1'] = "Fund"
+outputSheet['B1'] = "Released Budget"
+outputSheet['C1'] = "YTD Actual"
+outputSheet['D1'] = "Open POs"
+outputSheet['E1'] = "Open Reqs"
+outputSheet['F1'] = "Balance"
+outputSheet['G1'] = "End Date"
+outputSheet['H1'] = "Fund Name"
 
+### Populate output worksheet with outputArray values
+outputRow = 2
+print("Outputting the cleaned values into a new spreadsheet...")
+for fundRow in outputArray:
+	outputSheet.cell(row=outputRow, column=1, value = fundRow[0]) #Fund
+	outputSheet.cell(row=outputRow, column=2, value = fundRow[1]) #Released Budget
+	outputSheet.cell(row=outputRow, column=3, value = fundRow[2]) #YTD actual
+	outputSheet.cell(row=outputRow, column=4, value = fundRow[3]) #Open POs
+	outputSheet.cell(row=outputRow, column=5, value = fundRow[4]) #Open Reqs
+	outputSheet.cell(row=outputRow, column=6, value = fundRow[5]) #Balance
+	outputSheet.cell(row=outputRow, column=7, value = fundRow[6]) #End Date
+	outputSheet.cell(row=outputRow, column=8, value = fundRow[7]) #Fund Name
+	outputRow = outputRow + 1
 
-#Pseudocode:
-#Run a for-loop to search through column B to identify "Grand Total for"
-#For each "Grand Total for" found:
-#	Set variable Fund to the value found in that row and in column G.
-#	Set variable ytdActualSpending to the value found in that row and column AB
-#	Store these values into a worksheet called "Scrap" found in "Grant Expenditure Tracking, FY 2019.xlsx"
-
-#read fund YTD values from exported SAP file, "AllFunds.xlsx", and write them into a worksheet titled "Scrap" that is found in the tracker Excel file ("Grant Expenditure Tracking, FY2019.xlsx")
-sheet = wb['AllFunds']
-sheetMaxRows = sheet.max_row
-sheetMaxColumns = sheet.max_column
-scrapSheet = trackingWorkbook['Scrap']
-scrapSheetCount = 1
-
-for i in range(1,sheetMaxRows-2,1):
-	currentFundCell = sheet.cell(row=i, column=7)
-	if currentFundCell.value != None:
-		if currentFundCell.value in trackingList:
-			print(str(currentFundCell.value) + " $" + str(sheet.cell(row=i,column=29).value))
-			scrapSheetColumnA = 'A' + str(scrapSheetCount)
-			scrapSheetColumnB = 'B' + str(scrapSheetCount)
-			scrapSheet[scrapSheetColumnA] = currentFundCell.value
-			scrapSheet[scrapSheetColumnB] = str(sheet.cell(row=i,column=29).value)
-			scrapSheetCount += 1
-
-scrapSheetColumnA= 'A' + str(scrapSheetCount+1)			
-scrapSheetColumnB= 'B' + str(scrapSheetCount+1)			
-scrapSheet[scrapSheetColumnA] = "Updated:"
-scrapSheet[scrapSheetColumnB] = datetime.datetime.now().strftime("%I:%M%p on %B %d, %Y")			
-
-trackingWorkbook.save('Grant Expenditure Tracking, FY2019.xlsx')
-		
+### Save output workbook
+outputWorkbook.save(filename = 'outputFunds.xlsx')
+print("Done. Saved file as outputFunds.xlsx. Happy grants management!")
